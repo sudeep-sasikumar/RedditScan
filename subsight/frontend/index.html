@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SubSight — Reddit Research Tool</title>
+<style>
+:root {
+  --bg: #0f0f0f;
+  --surface: #1a1a1a;
+  --surface2: #242424;
+  --accent: #FF4500;
+  --accent-dim: #cc3700;
+  --text: #e8e8e8;
+  --text-muted: #888;
+  --success: #46d160;
+  --warning: #ffd635;
+  --danger: #ff585b;
+  --gold: #f5a623;
+  --radius: 12px;
+  --radius-sm: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 100vh;
+  padding-bottom: 48px;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── HEADER ── */
+header {
+  border-top: 3px solid var(--accent);
+  padding: 20px 16px 16px;
+  text-align: center;
+}
+header h1 {
+  color: var(--accent);
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+header p { color: var(--text-muted); font-size: 0.85rem; margin-top: 2px; }
+
+/* ── PREV RESULTS BANNER ── */
+#prev-banner {
+  display: none;
+  background: var(--surface2);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  margin: 8px 16px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--warning);
+}
+#prev-banner button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  margin: 12px 16px;
+  padding: 16px;
+}
+
+/* ── INPUT PANEL ── */
+.panel-title { font-size: 1rem; font-weight: 700; margin-bottom: 2px; }
+.panel-sub { color: var(--text-muted); font-size: 0.78rem; margin-bottom: 14px; line-height: 1.4; }
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.mode-btn {
+  flex: 1;
+  background: var(--surface2);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 8px 0;
+  transition: all 0.15s;
+}
+.mode-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Form fields */
+label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+input, textarea, select {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid #333;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  padding: 10px 12px;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+input.error, textarea.error { border-color: var(--danger); }
+textarea { resize: vertical; }
+select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; cursor: pointer; }
+select option { background: #1a1a1a; }
+
+.field { margin-bottom: 14px; }
+.hint { color: var(--danger); font-size: 0.75rem; margin-top: 4px; display: none; }
+.hint.show { display: block; }
+
+.filters-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.filters-row .field { margin-bottom: 0; }
+
+/* JSON mode */
+#json-mode { display: none; }
+#json-input { font-family: monospace; font-size: 0.82rem; }
+.parse-btn {
+  background: var(--surface2);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding: 8px 14px;
+  transition: background 0.15s;
+}
+.parse-btn:hover { background: #2e2e2e; }
+#json-error {
+  color: var(--danger);
+  font-size: 0.78rem;
+  margin-top: 6px;
+  display: none;
+}
+#json-error.show { display: block; }
+
+/* Run button */
+.run-btn {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 14px;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+.run-btn:hover:not(:disabled) { background: var(--accent-dim); }
+.run-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── PROGRESS ── */
+#progress-section { display: none; }
+.progress-steps { list-style: none; padding: 0; }
+.progress-steps li {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #222;
+  font-size: 0.9rem;
+}
+.progress-steps li:last-child { border-bottom: none; }
+.step-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #333;
+  flex-shrink: 0;
+  position: relative;
+}
+.step-dot.active {
+  background: var(--accent);
+  animation: pulse 1s infinite;
+}
+.step-dot.done { background: var(--success); }
+.step-dot.done::after {
+  content: "✓";
+  color: #000;
+  font-size: 10px;
+  font-weight: 900;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.progress-eta { color: var(--text-muted); font-size: 0.78rem; margin-top: 10px; text-align: center; }
+
+/* ── RESULTS ── */
+#results-section { display: none; }
+
+/* Stats bar */
+.stats-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.stat-pill {
+  background: var(--surface2);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  white-space: nowrap;
+}
+.stat-pill span { color: var(--accent); }
+
+/* Notes */
+#notes-card {
+  display: none;
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  background: rgba(255, 214, 53, 0.05);
+}
+#notes-card h4 { color: var(--warning); font-size: 0.82rem; margin-bottom: 6px; }
+#notes-list { list-style: disc; padding-left: 18px; }
+#notes-list li { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 4px; }
+
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 16px 12px;
+  scrollbar-width: none;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  background: var(--surface2);
+  border: none;
+  border-radius: 999px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.82rem;
+  padding: 7px 14px;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.tab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Tab panels */
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Post card */
+.post-card {
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  margin: 0 16px 10px;
+  padding: 14px;
+}
+.post-title {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+.post-title a { color: var(--text); }
+.post-title a:hover { color: var(--accent); text-decoration: none; }
+.post-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.badge {
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+.badge-score { background: var(--accent); color: #fff; }
+.badge-comments { background: var(--surface); color: var(--text-muted); border: 1px solid #333; }
+.badge-sub {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid #444;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  padding: 2px 10px;
+}
+.post-body {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+
+/* Comments toggle */
+.comments-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 0;
+}
+.comments-toggle:hover { color: var(--text); }
+.comments-list { display: none; margin-top: 8px; }
+.comments-list.open { display: block; }
+.comment-block {
+  background: var(--surface);
+  border-left: 2px solid #333;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  line-height: 1.4;
+}
+
+/* All posts controls */
+.all-posts-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 10px;
+  flex-wrap: wrap;
+}
+.sort-toggle {
+  display: flex;
+  gap: 6px;
+}
+.sort-btn {
+  background: var(--surface2);
+  border: 1px solid #333;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  transition: all 0.15s;
+}
+.sort-btn.active { border-color: var(--accent); color: var(--accent); }
+.filter-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+  margin: 0 16px 8px;
+}
+.filter-bar.show { display: flex; }
+.filter-bar span { color: var(--text-muted); }
+.clear-filter-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+.load-more-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 4px 16px 12px;
+  background: var(--surface2);
+  border: 1px solid #333;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 10px;
+  text-align: center;
+  transition: background 0.15s;
+}
+.load-more-btn:hover { background: #2e2e2e; }
+
+/* Empty state */
+.empty-state {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 20px 16px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* Keywords */
+.keywords-header {
+  padding: 0 16px 12px;
+}
+.keywords-header h3 { font-size: 0.95rem; margin-bottom: 2px; }
+.keywords-header p { color: var(--text-muted); font-size: 0.78rem; }
+.keyword-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 16px;
+}
+.keyword-word { font-size: 0.85rem; font-weight: 600; text-align: right; }
+.keyword-bar-wrap { height: 8px; background: #222; border-radius: 999px; overflow: hidden; }
+.keyword-bar { height: 100%; border-radius: 999px; }
+.keyword-count { color: var(--text-muted); font-size: 0.75rem; text-align: right; }
+.keywords-note {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  margin: 12px 16px 0;
+  text-align: center;
+}
+
+/* Subreddit rows */
+.sub-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #222;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.sub-row:last-child { border-bottom: none; }
+.sub-row:hover { background: var(--surface2); }
+.sub-name { font-weight: 700; font-size: 0.88rem; min-width: 110px; }
+.sub-stats { flex: 1; color: var(--text-muted); font-size: 0.78rem; }
+.sub-top { color: var(--text-muted); font-size: 0.75rem; flex: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Export row */
+.export-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 16px 0;
+}
+@media (min-width: 640px) {
+  .export-row { flex-direction: row; }
+  .export-row button { flex: 1; }
+}
+.export-btn {
+  background: var(--surface2);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 11px;
+  text-align: center;
+  transition: background 0.15s;
+}
+.export-btn:hover { background: #2e2e2e; }
+
+/* ── ERROR ── */
+#error-section { display: none; }
+.error-card {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  margin: 12px 16px;
+  padding: 18px;
+  background: rgba(255, 88, 91, 0.05);
+}
+.error-card h3 { color: var(--danger); margin-bottom: 8px; }
+#error-msg { font-size: 0.88rem; margin-bottom: 10px; word-break: break-word; }
+.error-help { color: var(--text-muted); font-size: 0.78rem; margin-bottom: 14px; }
+.retry-btn {
+  background: var(--surface2);
+  border: 1px solid #444;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 9px 16px;
+}
+.retry-btn:hover { background: #2e2e2e; }
+
+/* ── RESPONSIVE ── */
+@media (min-width: 640px) {
+  .card { margin: 12px 24px; }
+  .stats-bar, .tab-bar, .tab-panel .post-card, .export-row,
+  .all-posts-controls, .filter-bar, #notes-card, .sub-row, .keyword-row,
+  .load-more-btn, .keywords-header, .keywords-note, .empty-state {
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+  header { padding: 24px 24px 18px; }
+  #prev-banner { margin: 8px 24px; }
+  header h1 { font-size: 2.4rem; }
+}
+@media (min-width: 900px) {
+  body { max-width: 820px; margin: 0 auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <h1>SubSight</h1>
+  <p>Reddit Research Tool</p>
+</header>
+
+<!-- PREV RESULTS BANNER -->
+<div id="prev-banner">
+  📂 Previous results available — <button id="load-prev-btn">Load them</button>
+</div>
+
+<!-- INPUT PANEL -->
+<div class="card" id="input-panel">
+  <div class="panel-title">Search Parameters</div>
+  <div class="panel-sub">Get these from Claude by asking: "Give me SubSight parameters for [your research goal]"</div>
+
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-form-mode">Form Mode</button>
+    <button class="mode-btn" id="btn-json-mode">JSON Mode</button>
+  </div>
+
+  <!-- FORM MODE -->
+  <div id="form-mode">
+    <div class="field">
+      <label for="label-input">Research Label (optional)</label>
+      <input type="text" id="label-input" placeholder="e.g. UK Tradesman Pain Points">
+    </div>
+    <div class="field">
+      <label for="subreddits-input">Subreddits *</label>
+      <textarea id="subreddits-input" rows="3" placeholder="One per line, no r/ prefix. Example:
+UKtradesmen
+selfemployed_uk
+PlumbersUK
+electricians
+DIY"></textarea>
+      <div class="hint" id="sub-hint">Please enter at least one subreddit.</div>
+    </div>
+    <div class="field">
+      <label for="queries-input">Search Queries *</label>
+      <textarea id="queries-input" rows="3" placeholder="One per line. Example:
+invoicing problems
+scheduling nightmare
+getting paid late
+app doesnt work"></textarea>
+      <div class="hint" id="query-hint">Please enter at least one search query.</div>
+    </div>
+    <div class="filters-row">
+      <div class="field">
+        <label for="sort-select">Sort</label>
+        <select id="sort-select">
+          <option value="top" selected>top</option>
+          <option value="hot">hot</option>
+          <option value="new">new</option>
+          <option value="relevance">relevance</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="time-select">Time</label>
+        <select id="time-select">
+          <option value="week">week</option>
+          <option value="month">month</option>
+          <option value="year" selected>year</option>
+          <option value="all">all</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="minscore-input">Min Score</label>
+        <input type="number" id="minscore-input" value="5" min="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- JSON MODE -->
+  <div id="json-mode">
+    <div class="field">
+      <label for="json-input">Paste JSON parameters</label>
+      <textarea id="json-input" rows="8" style="font-family:monospace;font-size:0.82rem" placeholder='{
+  "subreddits": ["UKtradesmen", "selfemployed_uk"],
+  "search_queries": ["invoicing problems", "getting paid late"],
+  "filters": {
+    "sort": "top",
+    "time_filter": "year",
+    "min_score": 5
+  },
+  "research_label": "UK Tradesman Pain Points"
+}'></textarea>
+    </div>
+    <button class="parse-btn" id="parse-json-btn">Parse &amp; Load</button>
+    <div id="json-error"></div>
+  </div>
+
+  <button class="run-btn" id="run-btn">🔍 Run Research</button>
+</div>
+
+<!-- PROGRESS SECTION -->
+<div class="card" id="progress-section">
+  <ul class="progress-steps">
+    <li id="step-1"><div class="step-dot" id="dot-1"></div> <span>⚙&nbsp; Connecting to Reddit...</span></li>
+    <li id="step-2"><div class="step-dot" id="dot-2"></div> <span>📡&nbsp; Collecting posts...</span></li>
+    <li id="step-3"><div class="step-dot" id="dot-3"></div> <span>📊&nbsp; Processing results...</span></li>
+  </ul>
+  <p class="progress-eta">This usually takes 15–30 seconds</p>
+</div>
+
+<!-- RESULTS SECTION -->
+<div id="results-section">
+
+  <!-- Stats bar -->
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <!-- Notes -->
+  <div id="notes-card">
+    <h4>ℹ Search notes:</h4>
+    <ul id="notes-list"></ul>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="high-signal">High Signal</button>
+    <button class="tab-btn" data-tab="all-posts">All Posts</button>
+    <button class="tab-btn" data-tab="keywords">Keywords</button>
+    <button class="tab-btn" data-tab="by-subreddit">By Subreddit</button>
+  </div>
+
+  <!-- HIGH SIGNAL TAB -->
+  <div class="tab-panel active" id="tab-high-signal">
+    <div id="high-signal-posts"></div>
+  </div>
+
+  <!-- ALL POSTS TAB -->
+  <div class="tab-panel" id="tab-all-posts">
+    <div class="all-posts-controls">
+      <div class="sort-toggle">
+        <button class="sort-btn active" id="sort-score-btn">Score ▼</button>
+        <button class="sort-btn" id="sort-new-btn">Newest</button>
+      </div>
+    </div>
+    <div class="filter-bar" id="filter-bar">
+      <span id="filter-label"></span>
+      <button class="clear-filter-btn" id="clear-filter-btn">Clear filter</button>
+    </div>
+    <div id="all-posts-list"></div>
+    <button class="load-more-btn" id="load-more-btn" style="display:none">Load 20 more</button>
+  </div>
+
+  <!-- KEYWORDS TAB -->
+  <div class="tab-panel" id="tab-keywords">
+    <div class="keywords-header">
+      <h3>Most common words across all posts</h3>
+      <p>Higher frequency = more people talking about this topic</p>
+    </div>
+    <div id="keywords-list"></div>
+    <p class="keywords-note">Common words and filler words are excluded</p>
+  </div>
+
+  <!-- BY SUBREDDIT TAB -->
+  <div class="tab-panel" id="tab-by-subreddit">
+    <div id="subreddit-list"></div>
+  </div>
+
+  <!-- Export -->
+  <div class="export-row">
+    <button class="export-btn" id="copy-md-btn">📋 Copy as Markdown</button>
+    <button class="export-btn" id="export-json-btn">⬇ Export JSON</button>
+  </div>
+</div>
+
+<!-- ERROR SECTION -->
+<div id="error-section">
+  <div class="error-card">
+    <h3>❌ Something went wrong</h3>
+    <p id="error-msg"></p>
+    <p class="error-help">Check that your Reddit credentials in .env are correct and that the subreddit names are spelled correctly</p>
+    <button class="retry-btn" id="retry-btn">↩ Try Again</button>
+  </div>
+</div>
+
+<script>
+const API_BASE = "";
+
+// ── State ──────────────────────────────────────────────────────────────────
+let lastResult = null;
+let allPostsData = [];
+let allPostsOffset = 20;
+let allPostsSortByScore = true;
+let activeSubredditFilter = null;
+let stepTimers = [];
+
+// ── Elements ───────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+const inputPanel    = $("input-panel");
+const progressSec   = $("progress-section");
+const resultsSec    = $("results-section");
+const errorSec      = $("error-section");
+const runBtn        = $("run-btn");
+const retryBtn      = $("retry-btn");
+const prevBanner    = $("prev-banner");
+const loadPrevBtn   = $("load-prev-btn");
+
+// ── Prev results banner ────────────────────────────────────────────────────
+(function checkPrevResults() {
+  try {
+    const saved = localStorage.getItem("subsight_last_result");
+    if (saved) {
+      prevBanner.style.display = "block";
+    }
+  } catch (_) {}
+})();
+
+loadPrevBtn.addEventListener("click", () => {
+  try {
+    const saved = localStorage.getItem("subsight_last_result");
+    if (saved) {
+      lastResult = JSON.parse(saved);
+      prevBanner.style.display = "none";
+      showResults(lastResult);
+    }
+  } catch (_) {}
+});
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+const btnFormMode = $("btn-form-mode");
+const btnJsonMode = $("btn-json-mode");
+const formModeEl  = $("form-mode");
+const jsonModeEl  = $("json-mode");
+
+btnFormMode.addEventListener("click", () => switchMode("form"));
+btnJsonMode.addEventListener("click", () => switchMode("json"));
+
+function switchMode(mode) {
+  if (mode === "form") {
+    formModeEl.style.display = "block";
+    jsonModeEl.style.display = "none";
+    btnFormMode.classList.add("active");
+    btnJsonMode.classList.remove("active");
+  } else {
+    formModeEl.style.display = "none";
+    jsonModeEl.style.display = "block";
+    btnFormMode.classList.remove("active");
+    btnJsonMode.classList.add("active");
+  }
+}
+
+// ── Parse & Load ───────────────────────────────────────────────────────────
+$("parse-json-btn").addEventListener("click", () => {
+  const jsonErr = $("json-error");
+  jsonErr.classList.remove("show");
+  try {
+    const raw = $("json-input").value.trim();
+    const obj = JSON.parse(raw);
+
+    if (obj.research_label) $("label-input").value = obj.research_label;
+    if (Array.isArray(obj.subreddits)) {
+      $("subreddits-input").value = obj.subreddits.join("\n");
+    }
+    if (Array.isArray(obj.search_queries)) {
+      $("queries-input").value = obj.search_queries.join("\n");
+    }
+    if (obj.filters) {
+      if (obj.filters.sort)         $("sort-select").value = obj.filters.sort;
+      if (obj.filters.time_filter)  $("time-select").value = obj.filters.time_filter;
+      if (obj.filters.min_score !== undefined) $("minscore-input").value = obj.filters.min_score;
+    }
+    switchMode("form");
+  } catch (e) {
+    jsonErr.textContent = "Invalid JSON: " + e.message;
+    jsonErr.classList.add("show");
+  }
+});
+
+// ── Run Research ───────────────────────────────────────────────────────────
+runBtn.addEventListener("click", runResearch);
+
+async function runResearch() {
+  const subs = parseLines($("subreddits-input").value).map(s => s.replace(/^r\//i, ""));
+  const queries = parseLines($("queries-input").value);
+
+  let valid = true;
+  if (!subs.length) {
+    $("subreddits-input").classList.add("error");
+    $("sub-hint").classList.add("show");
+    valid = false;
+  } else {
+    $("subreddits-input").classList.remove("error");
+    $("sub-hint").classList.remove("show");
+  }
+  if (!queries.length) {
+    $("queries-input").classList.add("error");
+    $("query-hint").classList.add("show");
+    valid = false;
+  } else {
+    $("queries-input").classList.remove("error");
+    $("query-hint").classList.remove("show");
+  }
+  if (!valid) return;
+
+  const body = {
+    subreddits: subs,
+    search_queries: queries,
+    filters: {
+      sort: $("sort-select").value,
+      time_filter: $("time-select").value,
+      min_score: parseInt($("minscore-input").value) || 0,
+    },
+    research_label: $("label-input").value.trim(),
+  };
+
+  // UI state
+  inputPanel.style.display = "none";
+  resultsSec.style.display = "none";
+  errorSec.style.display = "none";
+  progressSec.style.display = "block";
+  runBtn.disabled = true;
+  runBtn.textContent = "Running...";
+
+  // Progress steps
+  startProgress();
+
+  try {
+    const resp = await fetch(API_BASE + "/api/research", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(180000),
+    });
+
+    clearStepTimers();
+    completeAllSteps();
+
+    await delay(400);
+    progressSec.style.display = "none";
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+      showError(err.error || `HTTP ${resp.status}`);
+      return;
+    }
+
+    const data = await resp.json();
+    lastResult = data;
+
+    try { localStorage.setItem("subsight_last_result", JSON.stringify(data)); } catch (_) {}
+    prevBanner.style.display = "none";
+
+    showResults(data);
+  } catch (e) {
+    clearStepTimers();
+    progressSec.style.display = "none";
+    showError(e.name === "TimeoutError" ? "Request timed out after 3 minutes." : e.message);
+  } finally {
+    runBtn.disabled = false;
+    runBtn.textContent = "🔍 Run Research";
+  }
+}
+
+function parseLines(str) {
+  return str.split("\n").map(s => s.trim()).filter(Boolean);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Progress ───────────────────────────────────────────────────────────────
+function startProgress() {
+  resetSteps();
+  activateStep(1);
+  stepTimers.push(setTimeout(() => { doneStep(1); activateStep(2); }, 2000));
+  stepTimers.push(setTimeout(() => { doneStep(2); activateStep(3); }, 8000));
+  stepTimers.push(setTimeout(() => { doneStep(3); }, 12000));
+}
+
+function clearStepTimers() {
+  stepTimers.forEach(t => clearTimeout(t));
+  stepTimers = [];
+}
+
+function completeAllSteps() {
+  [1, 2, 3].forEach(n => {
+    const dot = $(`dot-${n}`);
+    dot.classList.remove("active");
+    dot.classList.add("done");
+  });
+}
+
+function resetSteps() {
+  [1, 2, 3].forEach(n => {
+    const dot = $(`dot-${n}`);
+    dot.className = "step-dot";
+  });
+}
+
+function activateStep(n) {
+  $(`dot-${n}`).classList.add("active");
+}
+
+function doneStep(n) {
+  const dot = $(`dot-${n}`);
+  dot.classList.remove("active");
+  dot.classList.add("done");
+}
+
+// ── Error ──────────────────────────────────────────────────────────────────
+function showError(msg) {
+  $("error-msg").textContent = msg;
+  errorSec.style.display = "block";
+  inputPanel.style.display = "block";
+}
+
+retryBtn.addEventListener("click", () => {
+  errorSec.style.display = "none";
+});
+
+// ── Results ────────────────────────────────────────────────────────────────
+function showResults(data) {
+  const analysis = data.analysis;
+  resultsSec.style.display = "block";
+  inputPanel.style.display = "block";
+
+  // Stats bar
+  const statsBar = $("stats-bar");
+  statsBar.innerHTML = `
+    <div class="stat-pill"><span>${analysis.total_posts}</span> posts analysed</div>
+    <div class="stat-pill"><span>${analysis.subreddit_breakdown.length}</span> subreddits</div>
+    <div class="stat-pill"><span>${analysis.high_signal_posts.length}</span> high signal</div>
+  `;
+
+  // Notes
+  const notesCard = $("notes-card");
+  const notesList = $("notes-list");
+  if (analysis.collection_notes && analysis.collection_notes.length) {
+    notesList.innerHTML = analysis.collection_notes.map(n => `<li>${escHtml(n)}</li>`).join("");
+    notesCard.style.display = "block";
+  } else {
+    notesCard.style.display = "none";
+  }
+
+  // High signal tab
+  renderPostList("high-signal-posts", analysis.high_signal_posts,
+    "No posts exceeded score 50. Try lowering Min Score or switching to All Posts tab.");
+
+  // All posts tab
+  allPostsData = [...analysis.all_posts];
+  allPostsSortByScore = true;
+  allPostsOffset = 20;
+  activeSubredditFilter = null;
+  $("filter-bar").classList.remove("show");
+  $("sort-score-btn").classList.add("active");
+  $("sort-new-btn").classList.remove("active");
+  renderAllPosts();
+
+  // Keywords tab
+  renderKeywords(analysis.top_keywords);
+
+  // By subreddit tab
+  renderSubreddits(analysis.subreddit_breakdown);
+
+  // Activate High Signal tab by default
+  switchTab("high-signal");
+
+  resultsSec.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderPostList(containerId, posts, emptyMsg) {
+  const container = $(containerId);
+  if (!posts || !posts.length) {
+    container.innerHTML = `<p class="empty-state">${emptyMsg}</p>`;
+    return;
+  }
+  container.innerHTML = posts.map(p => postCardHtml(p)).join("");
+  attachCommentToggles(container);
+}
+
+function postCardHtml(post) {
+  const bodyPreview = post.selftext ? escHtml(post.selftext.slice(0, 200)) : "";
+  const commentsHtml = post.top_comments && post.top_comments.length
+    ? `<button class="comments-toggle">💬 Top Comments (${post.top_comments.length})</button>
+       <div class="comments-list">
+         ${post.top_comments.map(c => `<div class="comment-block">${escHtml(c.slice(0, 250))}</div>`).join("")}
+       </div>`
+    : "";
+  return `<div class="post-card">
+    <div class="post-title"><a href="${escHtml(post.url)}" target="_blank" rel="noopener">${escHtml(post.title)}</a></div>
+    <div class="post-meta">
+      <span class="badge badge-score">▲ ${post.score}</span>
+      <span class="badge badge-comments">${post.num_comments} comments</span>
+      <span class="badge-sub">r/${escHtml(post.subreddit)}</span>
+    </div>
+    ${bodyPreview ? `<div class="post-body">${bodyPreview}${post.selftext.length > 200 ? "…" : ""}</div>` : ""}
+    ${commentsHtml}
+  </div>`;
+}
+
+function attachCommentToggles(container) {
+  container.querySelectorAll(".comments-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const list = btn.nextElementSibling;
+      list.classList.toggle("open");
+    });
+  });
+}
+
+// ── All Posts ──────────────────────────────────────────────────────────────
+$("sort-score-btn").addEventListener("click", () => {
+  if (allPostsSortByScore) return;
+  allPostsSortByScore = true;
+  $("sort-score-btn").classList.add("active");
+  $("sort-new-btn").classList.remove("active");
+  allPostsOffset = 20;
+  renderAllPosts();
+});
+
+$("sort-new-btn").addEventListener("click", () => {
+  if (!allPostsSortByScore) return;
+  allPostsSortByScore = false;
+  $("sort-new-btn").classList.add("active");
+  $("sort-score-btn").classList.remove("active");
+  allPostsOffset = 20;
+  renderAllPosts();
+});
+
+$("load-more-btn").addEventListener("click", () => {
+  const posts = getFilteredSortedPosts();
+  const slice = posts.slice(allPostsOffset, allPostsOffset + 20);
+  allPostsOffset += 20;
+  const list = $("all-posts-list");
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = slice.map(p => postCardHtml(p)).join("");
+  attachCommentToggles(tempDiv);
+  while (tempDiv.firstChild) list.appendChild(tempDiv.firstChild);
+  if (allPostsOffset >= posts.length) $("load-more-btn").style.display = "none";
+});
+
+$("clear-filter-btn").addEventListener("click", () => {
+  activeSubredditFilter = null;
+  $("filter-bar").classList.remove("show");
+  allPostsOffset = 20;
+  renderAllPosts();
+});
+
+function getFilteredSortedPosts() {
+  let posts = [...allPostsData];
+  if (activeSubredditFilter) {
+    posts = posts.filter(p => p.subreddit === activeSubredditFilter);
+  }
+  if (!allPostsSortByScore) {
+    // "newest" — we don't have created_utc but we can reverse the insertion order
+    // posts are already sorted by score; for "newest" we just reverse
+    posts = posts.slice().reverse();
+  }
+  return posts;
+}
+
+function renderAllPosts() {
+  const posts = getFilteredSortedPosts();
+  const slice = posts.slice(0, allPostsOffset);
+  const list = $("all-posts-list");
+  if (!posts.length) {
+    list.innerHTML = `<p class="empty-state">No posts found${activeSubredditFilter ? ` for r/${activeSubredditFilter}` : ""}.</p>`;
+    $("load-more-btn").style.display = "none";
+    return;
+  }
+  list.innerHTML = slice.map(p => postCardHtml(p)).join("");
+  attachCommentToggles(list);
+  const loadMore = $("load-more-btn");
+  loadMore.style.display = allPostsOffset < posts.length ? "block" : "none";
+}
+
+// ── Keywords ───────────────────────────────────────────────────────────────
+function renderKeywords(keywords) {
+  const list = $("keywords-list");
+  if (!keywords || !keywords.length) {
+    list.innerHTML = `<p class="empty-state">No keywords found.</p>`;
+    return;
+  }
+  const maxCount = keywords[0].count;
+  list.innerHTML = keywords.map((kw, i) => {
+    const pct = Math.round((kw.count / maxCount) * 100);
+    const opacity = i < 5 ? 1 : Math.max(0.35, 1 - (i - 4) * 0.065);
+    return `<div class="keyword-row">
+      <span class="keyword-word">${escHtml(kw.word)}</span>
+      <div class="keyword-bar-wrap">
+        <div class="keyword-bar" style="width:${pct}%;background:rgba(255,69,0,${opacity})"></div>
+      </div>
+      <span class="keyword-count">${kw.count}</span>
+    </div>`;
+  }).join("");
+}
+
+// ── By Subreddit ───────────────────────────────────────────────────────────
+function renderSubreddits(subs) {
+  const list = $("subreddit-list");
+  if (!subs || !subs.length) {
+    list.innerHTML = `<p class="empty-state">No subreddit data.</p>`;
+    return;
+  }
+  list.innerHTML = subs.map(s => {
+    const top = s.top_post_title.length > 40 ? s.top_post_title.slice(0, 40) + "…" : s.top_post_title;
+    return `<div class="sub-row" data-sub="${escHtml(s.name)}">
+      <span class="sub-name">r/${escHtml(s.name)}</span>
+      <span class="sub-stats">${s.post_count} posts · avg ${s.avg_score}</span>
+      <span class="sub-top">${escHtml(top)}</span>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".sub-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const sub = row.dataset.sub;
+      activeSubredditFilter = sub;
+      allPostsOffset = 20;
+      $("filter-label").textContent = `Showing r/${sub} only`;
+      $("filter-bar").classList.add("show");
+      switchTab("all-posts");
+      renderAllPosts();
+    });
+  });
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+
+function switchTab(name) {
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === name);
+  });
+  document.querySelectorAll(".tab-panel").forEach(p => {
+    p.classList.toggle("active", p.id === "tab-" + name);
+  });
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+$("copy-md-btn").addEventListener("click", () => {
+  if (!lastResult) return;
+  const md = buildMarkdown(lastResult);
+  navigator.clipboard.writeText(md).then(() => {
+    const btn = $("copy-md-btn");
+    const orig = btn.textContent;
+    btn.textContent = "✓ Copied!";
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  }).catch(() => alert("Clipboard unavailable. Try in a real browser."));
+});
+
+$("export-json-btn").addEventListener("click", () => {
+  if (!lastResult) return;
+  const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "subsight-results.json";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function buildMarkdown(data) {
+  const a = data.analysis;
+  const label = data.label || "Research Results";
+  let md = `# SubSight: ${label}\n\n`;
+  md += `## Stats\n${a.total_posts} posts | ${a.subreddit_breakdown.length} subreddits\n\n`;
+  md += `## High Signal Posts\n`;
+  (a.high_signal_posts || []).forEach(p => {
+    md += `### ${p.title} (Score: ${p.score})\n${p.url}\n`;
+    if (p.selftext) md += `${p.selftext.slice(0, 300)}${p.selftext.length > 300 ? "…" : ""}\n`;
+    md += "\n";
+  });
+  md += `## Top Keywords\n`;
+  (a.top_keywords || []).forEach(kw => {
+    md += `- ${kw.word}: ${kw.count}\n`;
+  });
+  return md;
+}
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+</script>
+</body>
+</html>
